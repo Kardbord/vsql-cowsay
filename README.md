@@ -1,174 +1,172 @@
-# VillageSQL Extension Template
+# vsql_cowsay
 
-A minimal template project for creating VillageSQL extensions. This template provides the essential structure and files needed to develop, build, and test custom VillageSQL extensions.
+A cowsay extension for VillageSQL, bringing the classic `cowsay` utility to your
+SQL queries.
 
-**Docs:** [VillageSQL documentation](https://villagesql.com/docs) ·
+[VillageSQL documentation](https://villagesql.com/docs) ·
 [Writing extensions in C++](https://villagesql.com/docs/guides/cpp-extensions) ·
 [Install VillageSQL Server](https://villagesql.com/install)
 
 ## What This Is
 
-This template demonstrates how to create a VillageSQL extension by implementing a simple "Hello, World!" function. It includes all the minimum required files and follows the VillageSQL extension framework (VEF) structure.
+This extension implements a `cowsay()` SQL function that renders an ASCII cow
+with a speech bubble — the same format as the classic Unix `cowsay` utility.
+It's built on the VillageSQL extension framework (VEF) using C++.
 
 ## Project Structure
 
 ```
-vsql_extension_template/
+vsql_cowsay/
 ├── manifest.json           # Extension metadata (name, version, description, etc.)
-├── CMakeLists.txt         # CMake build configuration
+├── CMakeLists.txt          # CMake build configuration
 ├── cmake/
-│   └── FindVillageSQL.cmake  # CMake module for finding VillageSQL
+│   ├── FindVillageSQL.cmake           # CMake module for finding VillageSQL
+│   └── download-vsql-server.cmake     # Script for lazy dev server download
 ├── src/
-│   └── hello.cc           # C++ implementation using VEF API
+│   └── cowsay.cc          # C++ implementation using VEF API
 └── mysql-test/
     ├── t/                 # Test files (.test)
-    │   └── hello_basic.test
+    │   └── cowsay_basic.test
     └── r/                 # Expected results (.result)
-        └── hello_basic.result
+        └── cowsay_basic.result
 ```
 
 ## Prerequisites
 
 - CMake 3.18 or higher
 - C++ compiler with C++17 support
-- VillageSQL. You do **not** need to build the server from source. The install
-  script sets up a server *and* the extension SDK under `~/.villagesql`:
 
-  ```bash
-  curl -fsSL https://install.villagesql.com | INSTALL_METHOD=prebuilt bash
-  ```
-
-  (`INSTALL_METHOD=prebuilt` picks the path that installs the SDK locally; the
-  Docker option keeps it inside the image.) A VillageSQL build directory works
-  too, if you already have one.
+You do **not** need to pre-install VillageSQL. If `FindVillageSQL.cmake`
+doesn't find an existing SDK via any of its standard methods (build directory,
+SDK directory, `villagesql_config` in PATH, or `~/.villagesql`), it
+automatically downloads a prebuilt SDK from GitHub Releases.
 
 ## Building the Extension
-> **Note:** These steps are the same on Linux and macOS. Paths use `$HOME`.
 
-1. Create a build directory and configure:
+Build the extension with CMake:
 
-   ```bash
-   mkdir build
-   cd build
-   cmake .. -DVillageSQL_BUILD_DIR="$HOME/build/villagesql"
-   ```
+```bash
+mkdir build && cd build
+cmake ..
+make -j $(getconf _NPROCESSORS_ONLN)
+```
 
-   **If you used the install script**, point at what it laid down:
-   ```bash
-   cmake -S . -B build -DVillageSQL_BUILD_DIR="$HOME/.villagesql/prebuilt"
-   ```
+If you already have a VillageSQL build directory, you can point at it to skip
+the automatic download:
 
-   **Note**: `VillageSQL_BUILD_DIR` should point to your VillageSQL build directory. The VEB install directory is automatically set to `${VillageSQL_BUILD_DIR}/veb_output_directory`. To build against an unpacked SDK on its own, use `-DVillageSQL_SDK_DIR=/path/to/villagesql-extension-sdk-<version>` — that sets no install directory, so copy the VEB to wherever the server reads them (`SHOW VARIABLES LIKE 'veb_dir'`).
+```bash
+cmake .. -DVillageSQL_BUILD_DIR="$HOME/build/villagesql"
+```
 
-2. Build the extension:
+This creates the `vsql_cowsay.veb` package in the build directory.
 
-   ```bash
-   make -j $(getconf _NPROCESSORS_ONLN)
-   ```
-
-   This creates the `vsql_extension_template.veb` package in the build directory.
-
-3. Install the VEB (optional):
+To install the VEB to the server's `veb_dir` (if you have a server running):
 
 ```bash
 make install
 ```
-
-This copies the VEB to the directory specified by `VillageSQL_VEB_INSTALL_DIR`. If not using `make install`, you can manually copy the VEB file to your desired location.
 
 ## Using the Extension
 
 After building the VEB file, load the extension in VillageSQL:
 
 ```sql
-INSTALL EXTENSION vsql_extension_template;
+INSTALL EXTENSION vsql_cowsay;
 ```
 
-Then test the function:
+Then call the function:
 
 ```sql
-SELECT hello_world();
--- Returns: Hello, World!
+SELECT cowsay('Hello, world!');
 ```
-
-Note: Extension names use underscores, not hyphens (e.g., `vsql_extension_template`).
 
 ## Testing
 
 The extension includes test files using the MySQL Test Runner (MTR) framework.
 
-### Running Tests
+### Running Tests with make
 
-**Option 1 (Default): Using the installed VEB**
+The easiest way to run tests uses the lazy dev server download. On first run,
+it downloads a prebuilt VillageSQL dev server (~140MB) for your platform:
 
-This method assumes you have successfully run `make install` to install the VEB to your veb_dir.
+```bash
+make run-mtr
+```
+
+This automatically:
+1. Downloads and extracts the dev server (cached for subsequent runs)
+2. Copies the built `.veb` into the server's `lib/veb/`
+3. Installs the test suite and runs MTR
+
+### Running Tests Manually
+
+If you already have a VillageSQL server build directory, run MTR directly:
 
 ```bash
 cd $HOME/build/villagesql/mysql-test
-perl mysql-test-run.pl --suite=/path/to/vsql-extension-template/mysql-test
+perl mysql-test-run.pl --suite=/path/to/vsql-cowsay/mysql-test
 
 # Run with specific options
-perl mysql-test-run.pl --suite=/path/to/vsql-extension-template/mysql-test --parallel=auto
+perl mysql-test-run.pl --suite=/path/to/vsql-cowsay/mysql-test --parallel=auto
 ```
 
-**Option 2: Testing a VEB you have not installed**
-
-Point MTR at any directory holding the `.veb` with `--veb-source-dir`. It copies
-from there in addition to the usual locations, so you can test a fresh build
-without `make install`:
+To test a VEB you have **not** installed, point MTR at the build directory:
 
 ```bash
 cd $HOME/build/villagesql/mysql-test
 perl mysql-test-run.pl \
-  --veb-source-dir=/path/to/vsql-extension-template/build \
-  --suite=/path/to/vsql-extension-template/mysql-test
+  --veb-source-dir=/path/to/vsql-cowsay/build \
+  --suite=/path/to/vsql-cowsay/mysql-test
 ```
 
 ### Creating/Updating Test Results
-
-To create or update expected test results:
 
 ```bash
 cd $HOME/build/villagesql/mysql-test
 perl mysql-test-run.pl --suite=/path/to/test --record
 ```
 
-## Customizing This Template
+## Customizing This Extension
 
-To create your own extension:
+To add new functions or modify behavior:
 
 1. **Update `manifest.json`**:
-   - Change `name` to your extension name (use underscores, e.g., `my_extension_name`)
+   - Change `version` as needed
    - Update `description`, `author`, and other metadata
 
 2. **Update `CMakeLists.txt`**:
-   - Change `EXTENSION_NAME` to match your extension (use underscores)
-   - Update the library name and source files in `add_library()`
-   - Add dependencies if needed (e.g., `find_package()`, `target_link_libraries()`)
+   - Change `EXTENSION_NAME` if renaming the extension
+   - Add source files to `add_library()` if needed
+   - Add dependencies via `target_link_libraries()`
 
 3. **Implement Your Functions**:
-   - Modify `src/hello.cc` or create new source files
+   - Modify `src/cowsay.cc` or create new source files
    - Include `<villagesql/vsql.h>` and `using namespace vsql;`
    - Use typed wrapper parameters: `IntArg`, `RealArg`, `StringArg`, `StringResult`, etc.
    - Register functions using `VEF_GENERATE_ENTRY_POINTS()` macro
 
 4. **Create Tests**:
    - Add `.test` files in the `mysql-test/t/` directory
-   - Generate expected results with `--record` flag
+   - Update expected results via `--record` flag
    - Verify your functions work correctly
 
 ## Extension Development Tips
 
-- **Extension Naming**: Use underscores in extension names. A hyphenated name is a syntax error in `INSTALL EXTENSION` unless backtick-quoted, so underscores keep the statement quoting-free
+- **Extension Naming**: Use underscores in extension names. A hyphenated name
+  is a syntax error in `INSTALL EXTENSION` unless backtick-quoted, so
+  underscores keep the statement quoting-free
 - **Return Types**: Common types are `STRING`, `INT`, `REAL`, or custom types
 - **String Results**: Write into `out.buffer()`, then call `out.set_length(n)`
-- **NULL Handling**: Call `arg.is_null()` on input args; call `out.set_null()` to return NULL
-- **Error Handling**: Call `out.error(msg)` to abort with an error; `out.warning(msg)` for a warning
-- **Testing**: Always test with various inputs including edge cases and NULL values
+- **NULL Handling**: Call `arg.is_null()` on input args; call
+  `out.set_null()` to return NULL
+- **Error Handling**: Call `out.error(msg)` to abort with an error;
+  `out.warning(msg)` for a warning
+- **Testing**: Always test with various inputs including edge cases and NULL
+  values
 
 ## Example: Adding a New Function
 
-1. Add implementation to `src/hello.cc`:
+1. Add implementation to `src/cowsay.cc`:
 
 ```cpp
 void greet_impl(StringArg name, StringResult out) {
@@ -204,19 +202,6 @@ VEF_GENERATE_ENTRY_POINTS(
    ```bash
    cd build
    make -j $(getconf _NPROCESSORS_ONLN)
-   make install  # If VillageSQL_VEB_INSTALL_DIR is configured
-   ```
-
-   Then in VillageSQL:
-
-   ```sql
-   INSTALL EXTENSION vsql_extension_template;
-
-   -- Call without prefix
-   SELECT greet('VillageSQL');
-
-   -- Or with explicit namespace
-   SELECT vsql_extension_template.greet('VillageSQL');
    ```
 
 ## Troubleshooting
@@ -224,8 +209,13 @@ VEF_GENERATE_ENTRY_POINTS(
 ### Build Failures
 
 **VillageSQL SDK not found:**
+If the automatic download fails, set the version explicitly:
 ```bash
-# Make sure VillageSQL_BUILD_DIR points to your build directory
+cmake .. -DVILLAGESQL_SDK_VERSION=0.0.6
+```
+
+Or point to an existing installation:
+```bash
 cmake .. -DVillageSQL_BUILD_DIR="$HOME/build/villagesql"
 ```
 
@@ -233,14 +223,14 @@ cmake .. -DVillageSQL_BUILD_DIR="$HOME/build/villagesql"
 
 **Extension not found after installation:**
 - Verify the VEB file was copied to the correct directory
-- Check that `INSTALL EXTENSION extension_name` uses the correct name (underscores, not hyphens)
+- Check that `INSTALL EXTENSION vsql_cowsay` uses the correct name
 - Restart the VillageSQL server if needed
 
 **Function not found:**
 - Ensure the extension is installed: `SELECT * FROM INFORMATION_SCHEMA.EXTENSIONS;`
-- Try using explicit namespace: `extension_name.function_name()`
-- Check the server's VEF protocol support level to confirm compatibility with
-  your extension: `SELECT @@villagesql_vef_server_protocol;`
+- Try using explicit namespace: `vsql_cowsay.function_name()`
+- Check the server's VEF protocol support:
+  `SELECT @@villagesql_vef_server_protocol;`
 
 ## Resources
 
@@ -250,8 +240,5 @@ cmake .. -DVillageSQL_BUILD_DIR="$HOME/build/villagesql"
 
 ## License
 
-This template is released under the GPL-2.0 license. See the license header in source files for details.
-
-## Contributing
-
-When creating extensions based on this template, ensure your code follows the same license and includes appropriate copyright notices.
+This extension is released under the GPL-2.0 license. See the license header
+in source files for details.

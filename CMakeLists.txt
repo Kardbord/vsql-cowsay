@@ -14,7 +14,8 @@
 # along with this program; if not, see <https://www.gnu.org/licenses/>.
 
 cmake_minimum_required(VERSION 3.18)
-project(vsql_extension_template)
+project(vsql_cowsay)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Default to an optimized build. An empty CMAKE_BUILD_TYPE yields -O0 (no
 # -O flag applied), which builds and runs but leaves the code unoptimized.
@@ -36,7 +37,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Extension name
-set(EXTENSION_NAME "vsql_extension_template")
+set(EXTENSION_NAME "vsql_cowsay")
 
 # Find VillageSQL SDK
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
@@ -46,18 +47,75 @@ message(STATUS "VillageSQL SDK found at: ${VillageSQL_PREFIX}")
 message(STATUS "VillageSQL include dir: ${VillageSQL_INCLUDE_DIR}")
 
 # Create the hello world shared library
-add_library(hello SHARED
-    src/hello.cc
+add_library(cowsay SHARED
+    src/cowsay.cc
 )
 
 # Include directories
-target_include_directories(hello PRIVATE
+target_include_directories(cowsay PRIVATE
     ${VillageSQLExtensionFramework_INCLUDE_DIR}
 )
 
 # Create the VEB package
-VEF_CREATE_VEB(
+vef_create_veb(
     NAME ${EXTENSION_NAME}
-    LIBRARY_TARGET hello
+    LIBRARY_TARGET cowsay
     MANIFEST ${CMAKE_CURRENT_SOURCE_DIR}/manifest.json
 )
+
+# ---------------------------------------------------------------------------
+# Test targets (lazy dev server download)
+# ---------------------------------------------------------------------------
+
+# Platform detection for dev server tarball
+if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
+  set(_vsql_os "linux")
+elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
+  set(_vsql_os "macos")
+else()
+  message(FATAL_ERROR "Unsupported platform: ${CMAKE_HOST_SYSTEM_NAME}")
+endif()
+
+if(NOT VILLAGESQL_SDK_VERSION)
+  set(VILLAGESQL_SDK_VERSION "0.0.6")
+endif()
+if(NOT VILLAGESQL_PRODUCT)
+  set(VILLAGESQL_PRODUCT "mysql-8.4" CACHE STRING "VillageSQL server product variant")
+endif()
+
+set(_vsql_arch "${CMAKE_HOST_SYSTEM_PROCESSOR}")
+set(_vsql_dev_server_dir
+  "${CMAKE_CURRENT_BINARY_DIR}/_deps/villagesql-dev-server-${VILLAGESQL_PRODUCT}_${VILLAGESQL_SDK_VERSION}-${_vsql_os}-${_vsql_arch}")
+
+add_custom_target(villagesql-dev-server
+  COMMENT "Downloading VillageSQL dev server ${VILLAGESQL_SDK_VERSION}..."
+  COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/_deps"
+  COMMAND ${CMAKE_COMMAND}
+    -D VERSION="${VILLAGESQL_SDK_VERSION}"
+    -D PRODUCT="${VILLAGESQL_PRODUCT}"
+    -D OS="${_vsql_os}"
+    -D ARCH="${_vsql_arch}"
+    -D DEST_DIR="${CMAKE_CURRENT_BINARY_DIR}/_deps"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/download-vsql-server.cmake"
+  BYPRODUCTS "${_vsql_dev_server_dir}/villagesql"
+  USES_TERMINAL
+)
+
+add_custom_target(run-mtr
+  COMMENT "Running MTR test suite for ${EXTENSION_NAME}..."
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+    "${CMAKE_CURRENT_SOURCE_DIR}/mysql-test"
+    "${_vsql_dev_server_dir}/mysql-test/suite/${EXTENSION_NAME}"
+  COMMAND ${CMAKE_COMMAND} -E copy
+    "${CMAKE_CURRENT_BINARY_DIR}/${EXTENSION_NAME}.veb"
+    "${_vsql_dev_server_dir}/lib/veb/"
+  COMMAND "${_vsql_dev_server_dir}/villagesql" mysql-test
+    --suite="${EXTENSION_NAME}"
+    --parallel=auto
+    --nounit-tests
+    --force
+    --retry=0
+  DEPENDS ${EXTENSION_NAME}.veb villagesql-dev-server
+  WORKING_DIRECTORY "${_vsql_dev_server_dir}/mysql-test"
+)
+

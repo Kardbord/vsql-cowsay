@@ -26,6 +26,7 @@ This module finds the VillageSQL Extension SDK using the following methods
 2. ``VillageSQL_SDK_DIR`` if explicitly set by the user
 3. The ``villagesql_config`` script if found in PATH
 4. Direct detection in ``~/.villagesql``
+5. Automatic download of a prebuilt SDK from GitHub Releases (final fallback)
 
 Imported Targets
 ^^^^^^^^^^^^^^^^
@@ -72,6 +73,10 @@ Cache Variables
 ``VillageSQL_SDK_DIR``
   Set this variable to the SDK installation directory to override
   automatic detection.
+
+``VILLAGESQL_SDK_VERSION``
+  Version of the SDK to download from GitHub Releases when not found
+  locally (default ``0.0.6``).
 
 Requirements
 ^^^^^^^^^^^^
@@ -231,6 +236,64 @@ if(NOT _villagesql_found)
   endif()
 
   unset(_default_prefix)
+endif()
+
+# Method 5: Download prebuilt SDK from GitHub Releases (automatic fallback)
+if(NOT _villagesql_found)
+  set(VILLAGESQL_SDK_VERSION "0.0.6" CACHE STRING
+    "VillageSQL SDK version to download from GitHub Releases as fallback")
+
+  set(_sdk_dir
+    "${CMAKE_CURRENT_BINARY_DIR}/_deps/villagesql-extension-sdk-${VILLAGESQL_SDK_VERSION}")
+  set(_sdk_tarball
+    "${CMAKE_CURRENT_BINARY_DIR}/_deps/villagesql-extension-sdk-${VILLAGESQL_SDK_VERSION}.tar.gz")
+
+  if(NOT EXISTS "${_sdk_dir}/include/villagesql/vsql.h")
+    set(_sdk_url
+      "https://github.com/villagesql/villagesql-server/releases/download/release/${VILLAGESQL_SDK_VERSION}/villagesql-extension-sdk-${VILLAGESQL_SDK_VERSION}.tar.gz")
+    message(STATUS
+      "VillageSQL SDK not found locally. Downloading SDK ${VILLAGESQL_SDK_VERSION}...")
+    file(DOWNLOAD "${_sdk_url}" "${_sdk_tarball}"
+      STATUS _dl_status
+      SHOW_PROGRESS)
+    list(GET _dl_status 0 _dl_code)
+    if(NOT _dl_code EQUAL 0)
+      list(GET _dl_status 1 _dl_msg)
+      message(FATAL_ERROR
+        "Failed to download VillageSQL SDK.\n"
+        "  URL: ${_sdk_url}\n"
+        "  Error: ${_dl_msg}\n"
+        "Set VILLAGESQL_SDK_VERSION to a valid release tag, or\n"
+        "install VillageSQL via one of the other detection methods.")
+    endif()
+    message(STATUS "Extracting SDK tarball...")
+    file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/_deps")
+    execute_process(
+      COMMAND ${CMAKE_COMMAND} -E tar xzf "${_sdk_tarball}"
+      WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/_deps"
+      RESULT_VARIABLE _tar_result)
+    if(NOT _tar_result EQUAL 0)
+      message(FATAL_ERROR "Failed to extract VillageSQL SDK tarball")
+    endif()
+    file(REMOVE "${_sdk_tarball}")
+  endif()
+
+  set(VillageSQL_PREFIX "${_sdk_dir}")
+  set(VillageSQL_INCLUDE_DIR "${_sdk_dir}/include")
+  set(VillageSQL_CXX_FLAGS "-I${_sdk_dir}/include")
+  if(EXISTS "${_sdk_dir}/bin/villagesql_config")
+    set(VILLAGESQL_CONFIG_EXECUTABLE "${_sdk_dir}/bin/villagesql_config")
+    execute_process(
+      COMMAND ${VILLAGESQL_CONFIG_EXECUTABLE} --version
+      OUTPUT_VARIABLE VillageSQL_VERSION
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+      ERROR_QUIET)
+  endif()
+  if(NOT VillageSQL_VERSION)
+    set(VillageSQL_VERSION "${VILLAGESQL_SDK_VERSION}")
+  endif()
+  message(STATUS
+    "Using VillageSQL SDK downloaded from GitHub Releases: ${_sdk_dir}")
 endif()
 
 unset(_villagesql_found)

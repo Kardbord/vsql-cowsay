@@ -21,17 +21,15 @@
 using namespace vsql;
 
 void hello_world_impl(StringResult out) {
-  const char* hello = "Hello, World!";
+  const char *hello = "Hello, World!";
   auto buf = out.buffer();
   memcpy(buf.data(), hello, strlen(hello));
   out.set_length(strlen(hello));
 }
 
 VEF_GENERATE_ENTRY_POINTS(
-  make_extension()
-    .func(make_func<&hello_world_impl>("hello_world")
-      .returns(STRING)
-      .no_params()
-      .buffer_size(14)
-      .build())
-)
+    make_extension().func(make_func<&hello_world_impl>("hello_world")
+                              .returns(STRING)
+                              .no_params()
+                              .buffer_size(14)
+                              .build()))

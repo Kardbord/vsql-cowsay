@@ -1,4 +1,4 @@
-INSTALL EXTENSION vsql_extension_template;
+INSTALL EXTENSION vsql_cowsay;
 #
 # Test basic hello_world function
 #
@@ -11,4 +11,4 @@ test_result
 #
 # Cleanup
 #
-UNINSTALL EXTENSION vsql_extension_template;
+UNINSTALL EXTENSION vsql_cowsay;

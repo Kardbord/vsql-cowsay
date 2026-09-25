@@ -6,34 +6,43 @@ This file provides guidance to AI coding assistants when working with code in th
 
 ## Project Overview
 
-This is a template project for creating VillageSQL extensions. It provides the minimum required files and structure to build, package, and install custom extensions for VillageSQL (a MySQL-compatible database). The template includes a simple "Hello, World!" function as an example.
+This is a cowsay extension for VillageSQL. It provides the `cowsay()` SQL
+function that renders ASCII cow art with a speech bubble, built on the
+VillageSQL Extension Framework.
 
 ## Build System
 
 - **Build**: `cmake . && make` (or `mkdir build && cd build && cmake .. && make`)
 - **Create VEB package**: Automatically created during `make`
 - **Install extension**: `make install` (if VillageSQL_VEB_INSTALL_DIR is defined)
+- **Run tests**: `make run-mtr` (downloads dev server on first run)
 
 The build process:
 1. Uses CMake to find VillageSQL via `find_package(VillageSQL REQUIRED)`
-2. Compiles C++ source files into shared library `hello.so`
-3. Packages library with `manifest.json` into `vsql_extension_template.veb` archive using `VEF_CREATE_VEB()` macro
-4. VEB can be installed and loaded using `INSTALL EXTENSION` command
+2. If no local SDK is found, automatically downloads a prebuilt SDK tarball
+   from GitHub Releases (`_deps/villagesql-sdk-{version}/`)
+3. Compiles C++ source files into shared library `cowsay.so`
+4. Packages library with `manifest.json` into `vsql_cowsay.veb` archive using
+   `vef_create_veb()` macro
+5. VEB can be installed and loaded using `INSTALL EXTENSION` command
 
-Set `VillageSQL_BUILD_DIR` to point to your VillageSQL build directory.
+Set `VillageSQL_BUILD_DIR` to skip the automatic download and use a local
+VillageSQL build tree.
 
 ## Architecture
 
 **Core Components:**
-- `src/hello.cc` - VEF function implementation for the hello_world function
+- `src/cowsay.cc` - VEF function implementation for cowsay
 - `manifest.json` - Extension metadata (name, version, description, author, license)
 - `CMakeLists.txt` - CMake build configuration
 - `cmake/FindVillageSQL.cmake` - CMake module for finding VillageSQL
+- `cmake/download-vsql-server.cmake` - Script for lazy dev server download
 - `mysql-test/t/` - Test files directory (`.test` files using MTR framework)
 - `mysql-test/r/` - Expected test results directory (`.result` files)
 
 **Available Functions:**
 - `hello_world()` - Returns the string "Hello, World!"
+- `cowsay()` - Not yet implemented (placeholder in cowsay.cc)
 
 **Dependencies:**
 - Requires VillageSQL (Extension Framework headers)
@@ -41,9 +50,9 @@ Set `VillageSQL_BUILD_DIR` to point to your VillageSQL build directory.
 - C++ compiler with C++17 support
 
 **Code Organization:**
-- File naming: lowercase with underscores (e.g., `hello.cc`)
+- File naming: lowercase with underscores (e.g., `cowsay.cc`)
 - Function naming: lowercase with underscores (e.g., `hello_world`)
-- Extension naming: lowercase with underscores (e.g., `vsql_extension_template`)
+- Extension naming: lowercase with underscores (e.g., `vsql_cowsay`)
 - Variable naming: lowercase with underscores (e.g., `result`)
 
 ## VillageSQL Extension Framework (VEF) API Pattern
@@ -120,13 +129,19 @@ Call the typed wrapper method on the result parameter:
 ## Testing
 
 The extension includes test files using the MySQL Test Runner (MTR) framework:
+
 - **Test Location**:
   - `mysql-test/t/` directory contains `.test` files with SQL test commands
   - `mysql-test/r/` directory contains `.result` files with expected output
-- **Run Tests**:
+- **Run Tests via CMake** (recommended):
+  ```bash
+  make -C build run-mtr
+  ```
+  Downloads a dev server on first run, then runs MTR automatically.
+- **Run Tests manually** (requires an existing VillageSQL build):
   ```bash
   cd <BUILD_DIR>/mysql-test
-  perl mysql-test-run.pl --suite=<path-to-vsql-extension-template>/mysql-test
+  perl mysql-test-run.pl --suite=<path-to-vsql-cowsay>/mysql-test
   ```
   Where `<BUILD_DIR>` is your VillageSQL/MySQL build directory
 - **Create/Update Results**: Use `--record` flag to generate or update expected `.result` files:
@@ -141,7 +156,7 @@ The extension includes test files using the MySQL Test Runner (MTR) framework:
 After building the VEB file, load the extension in VillageSQL:
 
 ```sql
-INSTALL EXTENSION vsql_extension_template;
+INSTALL EXTENSION vsql_cowsay;
 ```
 
 Then test the functions:
@@ -149,7 +164,7 @@ Then test the functions:
 SELECT hello_world();
 ```
 
-Note: Extension names use underscores, not hyphens (e.g., `vsql_extension_template`, not `vsql-extension-template`).
+Note: Extension names use underscores, not hyphens (e.g., `vsql_cowsay`, not `vsql-cowsay`).
 
 ## Customizing the Template
 
@@ -166,7 +181,7 @@ To create your own extension:
    - Add dependencies (e.g., `find_package(OpenSSL)`, `target_link_libraries()`)
 
 3. **Implement your functions**:
-   - Modify `src/hello.cc` or create new `.cc` files
+   - Modify `src/cowsay.cc` or create new `.cc` files
    - Follow the VEF API pattern (single implementation function)
    - Use `VEF_GENERATE_ENTRY_POINTS()` to register functions
    - Add copyright header to all new source files
@@ -225,7 +240,7 @@ When asked to add functionality to this template:
 
 3. **Adding dependencies**:
    - Update CMakeLists.txt with `find_package()` or `target_link_libraries()`
-   - Example: OpenSSL requires `find_package(OpenSSL REQUIRED)` and `target_link_libraries(hello PRIVATE ${OPENSSL_LIBRARIES})`
+   - Example: OpenSSL requires `find_package(OpenSSL REQUIRED)` and `target_link_libraries(cowsay PRIVATE ${OPENSSL_LIBRARIES})`
 
 4. **Testing**:
    - Create or update `.test` files in `mysql-test/t/` directory
