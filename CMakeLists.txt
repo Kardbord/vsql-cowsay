@@ -103,6 +103,10 @@ add_custom_target(villagesql-dev-server
 
 add_custom_target(run-mtr
   COMMENT "Running MTR test suite for ${EXTENSION_NAME}..."
+  COMMAND ${CMAKE_COMMAND} -E make_directory
+    "${_vsql_dev_server_dir}/lib/veb/"
+  COMMAND ${CMAKE_COMMAND} -E make_directory
+    "${_vsql_dev_server_dir}/mysql-test/suite/${EXTENSION_NAME}"
   COMMAND ${CMAKE_COMMAND} -E copy_directory
     "${CMAKE_CURRENT_SOURCE_DIR}/mysql-test"
     "${_vsql_dev_server_dir}/mysql-test/suite/${EXTENSION_NAME}"
@@ -116,6 +120,5 @@ add_custom_target(run-mtr
     --force
     --retry=0
   DEPENDS ${EXTENSION_NAME}.veb villagesql-dev-server
-  WORKING_DIRECTORY "${_vsql_dev_server_dir}/mysql-test"
 )
 

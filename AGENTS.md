@@ -12,7 +12,7 @@ VillageSQL Extension Framework.
 
 ## Build System
 
-- **Build**: `cmake . && make` (or `mkdir build && cd build && cmake .. && make`)
+- **Build**: `mkdir build && cd build && cmake .. && make`
 - **Create VEB package**: Automatically created during `make`
 - **Install extension**: `make install` (if VillageSQL_VEB_INSTALL_DIR is defined)
 - **Run tests**: `make run-mtr` (downloads dev server on first run)
@@ -138,16 +138,6 @@ The extension includes test files using the MySQL Test Runner (MTR) framework:
   make -C build run-mtr
   ```
   Downloads a dev server on first run, then runs MTR automatically.
-- **Run Tests manually** (requires an existing VillageSQL build):
-  ```bash
-  cd <BUILD_DIR>/mysql-test
-  perl mysql-test-run.pl --suite=<path-to-vsql-cowsay>/mysql-test
-  ```
-  Where `<BUILD_DIR>` is your VillageSQL/MySQL build directory
-- **Create/Update Results**: Use `--record` flag to generate or update expected `.result` files:
-  ```bash
-  perl mysql-test-run.pl --suite=<path-to-test-dir> --record
-  ```
 - Tests should validate function output and behavior
 - Each test should install the extension, run tests, and clean up (drop functions, uninstall extension)
 
