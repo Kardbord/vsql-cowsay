@@ -1,14 +1,68 @@
+# Install extension
 INSTALL EXTENSION vsql_cowsay;
 #
-# Test basic hello_world function
+# Test cowsay function
 #
-SELECT hello_world() AS result;
-result
-Hello, World!
-SELECT hello_world() = 'Hello, World!' AS test_result;
-test_result
-1
+# Test cowsay with a short message
+SELECT cowsay('Hello');
+cowsay('Hello')
+Hello
+        \   ^__^
+         \  (oo)\_______
+            (__)\       )\/\
+                ||----w |
+                ||     ||
+
+# Test empty string
+SELECT cowsay('');
+cowsay('')
+
+        \   ^__^
+         \  (oo)\_______
+            (__)\       )\/\
+                ||----w |
+                ||     ||
+
+# Test NULL input
+SELECT cowsay(NULL);
+cowsay(NULL)
+
+        \   ^__^
+         \  (oo)\_______
+            (__)\       )\/\
+                ||----w |
+                ||     ||
+
+SELECT cowsay('The FitnessGram Pacer test is a multistage aerobic
+capacity test that progressively gets more difficult as it continues.
+The 20 meter Pacer test will begin in 30 seconds. Line up at the start.
+The running speed starts slowly, but gets faster each minute after you
+hear this signal *boop*. A single lap should be completed each time you
+hear this sound *ding*. Remember to run in a straight line, and run as
+long as possible. The second time you fail to complete a lap before the
+sound, your test is over. The test will begin on the word start. On your
+mark, get ready, start.');
+cowsay('The FitnessGram Pacer test is a multistage aerobic
+capacity test that progressively gets more difficult as it continues.
+The 20 meter Pacer test will begin in 30 seconds. Line up at the start.
+The running speed starts slowly, but gets faster each 
+The FitnessGram Pacer test is a multistage aerobic
+capacity test that progressively gets more difficult as it continues.
+The 20 meter Pacer test will begin in 30 seconds. Line up at the start.
+The running speed starts slowly, but gets faster each minute after you
+hear this signal *boop*. A single lap should be completed each time you
+hear this sound *ding*. Remember to run in a straight line, and run as
+long as possible. The second time you fail to complete a lap before the
+sound, your test is over. The test will begin on the word start. On your
+mark, get ready, start.
+        \   ^__^
+         \  (oo)\_______
+            (__)\       )\/\
+                ||----w |
+                ||     ||
+
 #
 # Cleanup
 #
+# Uninstall extension
 UNINSTALL EXTENSION vsql_cowsay;

@@ -14,22 +14,41 @@
  * along with this program; if not, see <https://www.gnu.org/licenses/>.
  */
 
+#include <cstring>
+#include <string_view>
 #include <villagesql/vsql.h>
 
-#include <cstring>
+constexpr size_t BUF_SIZE = 2048;
 
-using namespace vsql;
+constexpr std::string_view COW_ART{R"(
+        \   ^__^
+         \  (oo)\_______
+            (__)\       )\/\
+                ||----w |
+                ||     ||
+)"};
 
-void hello_world_impl(StringResult out) {
-  const char *hello = "Hello, World!";
-  auto buf = out.buffer();
-  memcpy(buf.data(), hello, strlen(hello));
-  out.set_length(strlen(hello));
+void cowsay_impl(vsql::StringArg in, vsql::StringResult out) {
+  if (in.value().size() + COW_ART.size() > BUF_SIZE) {
+    out.error("input is too large for cowsay :(");
+    return;
+  }
+
+  size_t written = 0;
+  if (!in.is_null()) {
+    std::memcpy(out.buffer().data(), in.value().data(), in.value().size());
+    written += in.value().size();
+  }
+
+  std::memcpy(out.buffer().data() + written, COW_ART.data(), COW_ART.size());
+  written += COW_ART.size();
+  out.set_length(written);
 }
 
 VEF_GENERATE_ENTRY_POINTS(
-    make_extension().func(make_func<&hello_world_impl>("hello_world")
+    make_extension().func(make_func<&cowsay_impl>("cowsay")
                               .returns(STRING)
-                              .no_params()
-                              .buffer_size(14)
+                              .param(STRING)
+                              .deterministic()
+                              .buffer_size(BUF_SIZE)
                               .build()))
