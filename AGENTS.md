@@ -108,5 +108,5 @@ by running MTR with `--record`:
 cmake --build build --target run-mtr
 
 # Update expected results
-perl mysql-test-run.pl --suite=/path/to/mysql-test --record
+cmake --build build --target run-mtr-record
 ```

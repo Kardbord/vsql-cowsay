@@ -119,3 +119,17 @@ add_custom_target(run-mtr
   DEPENDS ${EXTENSION_NAME}.veb villagesql-dev-server
 )
 
+add_custom_target(run-mtr-record
+  COMMENT "Recording MTR test results for ${EXTENSION_NAME}..."
+  COMMAND "${_vsql_test_runner}"
+    --veb-source-dir="${CMAKE_CURRENT_BINARY_DIR}"
+    --suite="${CMAKE_CURRENT_SOURCE_DIR}/mysql-test"
+    --record
+    --parallel=auto
+    --nounit-tests
+    --force
+    --retry=0
+  WORKING_DIRECTORY "${_vsql_test_base}/mysql-test"
+  DEPENDS ${EXTENSION_NAME}.veb villagesql-dev-server
+)
+
