@@ -46,7 +46,7 @@ find_package(VillageSQL REQUIRED)
 message(STATUS "VillageSQL SDK found at: ${VillageSQL_PREFIX}")
 message(STATUS "VillageSQL include dir: ${VillageSQL_INCLUDE_DIR}")
 
-# Create the hello world shared library
+# Create the cowsay shared library
 add_library(cowsay SHARED
     src/cowsay.cc
 )
@@ -64,7 +64,7 @@ vef_create_veb(
 )
 
 # ---------------------------------------------------------------------------
-# Test targets (lazy dev server download)
+# Test targets
 # ---------------------------------------------------------------------------
 
 # Platform detection for dev server tarball
@@ -76,49 +76,46 @@ else()
   message(FATAL_ERROR "Unsupported platform: ${CMAKE_HOST_SYSTEM_NAME}")
 endif()
 
-if(NOT VILLAGESQL_SDK_VERSION)
-  set(VILLAGESQL_SDK_VERSION "0.0.6")
-endif()
-if(NOT VILLAGESQL_PRODUCT)
-  set(VILLAGESQL_PRODUCT "mysql-8.4" CACHE STRING "VillageSQL server product variant")
-endif()
+set(VillageSQL_FETCH_PRODUCT "mysql-8.4" CACHE STRING
+  "VillageSQL server product variant to fetch when no local server is available")
 
 set(_vsql_arch "${CMAKE_HOST_SYSTEM_PROCESSOR}")
-set(_vsql_dev_server_dir
-  "${CMAKE_CURRENT_BINARY_DIR}/_deps/villagesql-dev-server-${VILLAGESQL_PRODUCT}_${VILLAGESQL_SDK_VERSION}-${_vsql_os}-${_vsql_arch}")
 
-add_custom_target(villagesql-dev-server
-  COMMENT "Downloading VillageSQL dev server ${VILLAGESQL_SDK_VERSION}..."
-  COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/_deps"
-  COMMAND ${CMAKE_COMMAND}
-    -D VERSION="${VILLAGESQL_SDK_VERSION}"
-    -D PRODUCT="${VILLAGESQL_PRODUCT}"
-    -D OS="${_vsql_os}"
-    -D ARCH="${_vsql_arch}"
-    -D DEST_DIR="${CMAKE_CURRENT_BINARY_DIR}/_deps"
-    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/download-vsql-server.cmake"
-  BYPRODUCTS "${_vsql_dev_server_dir}/villagesql"
-  USES_TERMINAL
-)
+if(VillageSQL_BUILD_DIR)
+  set(_vsql_test_base "${VillageSQL_BUILD_DIR}")
+  add_custom_target(villagesql-dev-server
+    COMMENT "Using VillageSQL server from build tree: ${VillageSQL_BUILD_DIR}"
+    COMMAND ${CMAKE_COMMAND} -E echo "VillageSQL server found at ${VillageSQL_BUILD_DIR}/mysql-test/mysql-test-run.pl"
+  )
+else()
+  set(_vsql_test_base
+    "${CMAKE_CURRENT_BINARY_DIR}/_deps/villagesql-dev-server-${VillageSQL_FETCH_PRODUCT}_${VillageSQL_FETCH_SDK_VERSION}-${_vsql_os}-${_vsql_arch}")
+  add_custom_target(villagesql-dev-server
+    COMMENT "Downloading VillageSQL dev server ${VillageSQL_FETCH_SDK_VERSION}..."
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/_deps"
+    COMMAND ${CMAKE_COMMAND}
+      -D VERSION="${VillageSQL_FETCH_SDK_VERSION}"
+      -D PRODUCT="${VillageSQL_FETCH_PRODUCT}"
+      -D OS="${_vsql_os}"
+      -D ARCH="${_vsql_arch}"
+      -D DEST_DIR="${CMAKE_CURRENT_BINARY_DIR}/_deps"
+      -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/download-vsql-server.cmake"
+    USES_TERMINAL
+  )
+endif()
+
+set(_vsql_test_runner "${_vsql_test_base}/mysql-test/mysql-test-run.pl")
 
 add_custom_target(run-mtr
   COMMENT "Running MTR test suite for ${EXTENSION_NAME}..."
-  COMMAND ${CMAKE_COMMAND} -E make_directory
-    "${_vsql_dev_server_dir}/lib/veb/"
-  COMMAND ${CMAKE_COMMAND} -E make_directory
-    "${_vsql_dev_server_dir}/mysql-test/suite/${EXTENSION_NAME}"
-  COMMAND ${CMAKE_COMMAND} -E copy_directory
-    "${CMAKE_CURRENT_SOURCE_DIR}/mysql-test"
-    "${_vsql_dev_server_dir}/mysql-test/suite/${EXTENSION_NAME}"
-  COMMAND ${CMAKE_COMMAND} -E copy
-    "${CMAKE_CURRENT_BINARY_DIR}/${EXTENSION_NAME}.veb"
-    "${_vsql_dev_server_dir}/lib/veb/"
-  COMMAND "${_vsql_dev_server_dir}/villagesql" mysql-test
-    --suite="${EXTENSION_NAME}"
+  COMMAND "${_vsql_test_runner}"
+    --veb-source-dir="${CMAKE_CURRENT_BINARY_DIR}"
+    --suite="${CMAKE_CURRENT_SOURCE_DIR}/mysql-test"
     --parallel=auto
     --nounit-tests
     --force
     --retry=0
+  WORKING_DIRECTORY "${_vsql_test_base}/mysql-test"
   DEPENDS ${EXTENSION_NAME}.veb villagesql-dev-server
 )
 

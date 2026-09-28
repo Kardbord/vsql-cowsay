@@ -211,7 +211,7 @@ VEF_GENERATE_ENTRY_POINTS(
 **VillageSQL SDK not found:**
 If the automatic download fails, set the version explicitly:
 ```bash
-cmake .. -DVILLAGESQL_SDK_VERSION=0.0.6
+cmake .. -DVillageSQL_FETCH_SDK_VERSION=0.0.6
 ```
 
 Or point to an existing installation:

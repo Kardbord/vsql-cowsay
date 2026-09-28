@@ -74,9 +74,9 @@ Cache Variables
   Set this variable to the SDK installation directory to override
   automatic detection.
 
-``VILLAGESQL_SDK_VERSION``
-  Version of the SDK to download from GitHub Releases when not found
-  locally (default ``0.0.6``).
+``VillageSQL_FETCH_SDK_VERSION``
+  Version of the SDK to fetch from GitHub Releases when no pre-existing
+  build or SDK directory is supplied (default ``0.0.6``).
 
 Requirements
 ^^^^^^^^^^^^
@@ -97,6 +97,9 @@ Example Usage
   cmake -DVillageSQL_SDK_DIR=/path/to/sdk ..
 
 #]=======================================================================]
+
+set(VillageSQL_FETCH_SDK_VERSION "0.0.6" CACHE STRING
+  "VillageSQL SDK version to fetch from GitHub Releases when no local SDK is found")
 
 set(_villagesql_found FALSE)
 
@@ -240,19 +243,16 @@ endif()
 
 # Method 5: Download prebuilt SDK from GitHub Releases (automatic fallback)
 if(NOT _villagesql_found)
-  set(VILLAGESQL_SDK_VERSION "0.0.6" CACHE STRING
-    "VillageSQL SDK version to download from GitHub Releases as fallback")
-
   set(_sdk_dir
-    "${CMAKE_CURRENT_BINARY_DIR}/_deps/villagesql-extension-sdk-${VILLAGESQL_SDK_VERSION}")
+    "${CMAKE_CURRENT_BINARY_DIR}/_deps/villagesql-extension-sdk-${VillageSQL_FETCH_SDK_VERSION}")
   set(_sdk_tarball
-    "${CMAKE_CURRENT_BINARY_DIR}/_deps/villagesql-extension-sdk-${VILLAGESQL_SDK_VERSION}.tar.gz")
+    "${CMAKE_CURRENT_BINARY_DIR}/_deps/villagesql-extension-sdk-${VillageSQL_FETCH_SDK_VERSION}.tar.gz")
 
   if(NOT EXISTS "${_sdk_dir}/include/villagesql/vsql.h")
     set(_sdk_url
-      "https://github.com/villagesql/villagesql-server/releases/download/release/${VILLAGESQL_SDK_VERSION}/villagesql-extension-sdk-${VILLAGESQL_SDK_VERSION}.tar.gz")
+      "https://github.com/villagesql/villagesql-server/releases/download/release/${VillageSQL_FETCH_SDK_VERSION}/villagesql-extension-sdk-${VillageSQL_FETCH_SDK_VERSION}.tar.gz")
     message(STATUS
-      "VillageSQL SDK not found locally. Downloading SDK ${VILLAGESQL_SDK_VERSION}...")
+      "VillageSQL SDK not found locally. Downloading SDK ${VillageSQL_FETCH_SDK_VERSION}...")
     file(DOWNLOAD "${_sdk_url}" "${_sdk_tarball}"
       STATUS _dl_status
       SHOW_PROGRESS)
@@ -263,7 +263,7 @@ if(NOT _villagesql_found)
         "Failed to download VillageSQL SDK.\n"
         "  URL: ${_sdk_url}\n"
         "  Error: ${_dl_msg}\n"
-        "Set VILLAGESQL_SDK_VERSION to a valid release tag, or\n"
+        "Set VillageSQL_FETCH_SDK_VERSION to a valid release tag, or\n"
         "install VillageSQL via one of the other detection methods.")
     endif()
     message(STATUS "Extracting SDK tarball...")
@@ -290,7 +290,7 @@ if(NOT _villagesql_found)
       ERROR_QUIET)
   endif()
   if(NOT VillageSQL_VERSION)
-    set(VillageSQL_VERSION "${VILLAGESQL_SDK_VERSION}")
+    set(VillageSQL_VERSION "${VillageSQL_FETCH_SDK_VERSION}")
   endif()
   message(STATUS
     "Using VillageSQL SDK downloaded from GitHub Releases: ${_sdk_dir}")
