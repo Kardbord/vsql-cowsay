@@ -133,7 +133,7 @@ add_custom_target(run-mtr-record
 )
 
 set(_vsql_test_instance "${CMAKE_CURRENT_BINARY_DIR}/instance")
-add_custom_target(init-transient-vsql-server
+add_custom_target(init-test-vsql-server
   COMMENT "Initializing VillageSQL Server..."
   COMMAND ${CMAKE_COMMAND} -E rm -rf "${_vsql_test_instance}/data"
   COMMAND ${CMAKE_COMMAND} -E make_directory "${_vsql_test_instance}"
@@ -150,8 +150,8 @@ add_custom_target(init-transient-vsql-server
   DEPENDS ${EXTENSION_NAME}.veb villagesql-dev-server
 )
 
-add_custom_target(connect-transient-vsql-server
-  COMMENT "Running and connecting to transient VillageSQL Server..."
+add_custom_target(connect-test-vsql-server
+  COMMENT "Running and connecting to test VillageSQL Server..."
   COMMAND ${CMAKE_COMMAND} -E echo "Running server..."
   COMMAND "${_vsql_test_base}/bin/mysqld"
     --no-defaults
@@ -174,7 +174,7 @@ add_custom_target(connect-transient-vsql-server
     --socket="${_vsql_test_instance}/mysql.sock"
     --user root
     shutdown
-  DEPENDS init-transient-vsql-server
+  DEPENDS init-test-vsql-server
   USES_TERMINAL
 )
 
