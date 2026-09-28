@@ -1,197 +1,45 @@
 # AGENTS.md
 
-This file provides guidance to AI coding assistants when working with code in this repository.
+Guidance for AI coding assistants working with this repository.
 
-**Note**: Also check `AGENTS.local.md` for additional local development instructions when present.
+**Note**: Also check `AGENTS.local.md` for local overrides when present.
 
 ## Project Overview
 
-This is a cowsay extension for VillageSQL. It provides the `cowsay()` SQL
-function that renders ASCII cow art with a speech bubble, built on the
-VillageSQL Extension Framework.
+A VillageSQL extension that renders ASCII cow art with a speech bubble via a
+`cowsay()` SQL function. Built on VEF — the VillageSQL Extension Framework.
 
-## Build System
+VEF is a typed C++ API. Functions are written as ordinary C++ functions using
+wrapper parameters (`IntArg`, `StringResult`, etc.) and registered with the
+`VEF_GENERATE_ENTRY_POINTS()` macro.
 
-- **Build**: `mkdir build && cd build && cmake .. && make`
-- **Create VEB package**: Automatically created during `make`
-- **Install extension**: `make install` (if VillageSQL_VEB_INSTALL_DIR is defined)
-- **Run tests**: `make run-mtr` (downloads dev server on first run)
 
-The build process:
-1. Uses CMake to find VillageSQL via `find_package(VillageSQL REQUIRED)`
-2. If no local SDK is found, automatically downloads a prebuilt SDK tarball
-   from GitHub Releases (`_deps/villagesql-sdk-{version}/`)
-3. Compiles C++ source files into shared library `cowsay.so`
-4. Packages library with `manifest.json` into `vsql_cowsay.veb` archive using
-   `vef_create_veb()` macro
-5. VEB can be installed and loaded using `INSTALL EXTENSION` command
+**Build system:**
+CMake finds the VillageSQL SDK via `find_package()`. If none is found, it
+downloads a prebuilt SDK tarball from GitHub Releases. The result is a `.veb`
+package (tar archive containing the shared library + manifest). Set
+`VillageSQL_BUILD_DIR` to skip the download and use a local build tree.
 
-Set `VillageSQL_BUILD_DIR` to skip the automatic download and use a local
-VillageSQL build tree.
+For complete VEF API coverage — typed wrappers, registration syntax, result
+types — see the C++ Development Guide linked in Sources of Truth below.
 
-## Architecture
+## Build & Test
 
-**Core Components:**
-- `src/cowsay.cc` - VEF function implementation for cowsay
-- `manifest.json` - Extension metadata (name, version, description, author, license)
-- `CMakeLists.txt` - CMake build configuration
-- `cmake/FindVillageSQL.cmake` - CMake module for finding VillageSQL
-- `cmake/download-vsql-server.cmake` - Script for lazy dev server download
-- `mysql-test/t/` - Test files directory (`.test` files using MTR framework)
-- `mysql-test/r/` - Expected test results directory (`.result` files)
-
-**Available Functions:**
-- `hello_world()` - Returns the string "Hello, World!"
-- `cowsay()` - Not yet implemented (placeholder in cowsay.cc)
-
-**Dependencies:**
-- Requires VillageSQL (Extension Framework headers)
-- Uses VillageSQL Extension Framework (VEF) API
-- C++ compiler with C++17 support
-
-**Code Organization:**
-- File naming: lowercase with underscores (e.g., `cowsay.cc`)
-- Function naming: lowercase with underscores (e.g., `hello_world`)
-- Extension naming: lowercase with underscores (e.g., `vsql_cowsay`)
-- Variable naming: lowercase with underscores (e.g., `result`)
-
-## VillageSQL Extension Framework (VEF) API Pattern
-
-Extensions use the typed C++ API: include `<villagesql/vsql.h>` and
-`using namespace vsql;`. Functions use typed wrappers (`IntArg`, `StringResult`,
-etc.). Do not mix protocols in the same extension.
-
-Functions are registered using the `VEF_GENERATE_ENTRY_POINTS()` macro with a fluent builder interface.
-
-### Basic Function Implementation
-
-Each function uses typed wrapper parameters:
-
-```cpp
-#include <villagesql/vsql.h>
-
-#include <cstring>
-
-using namespace vsql;
-
-// Integer result (no args)
-void my_function_impl(IntResult out) {
-    out.set(42);
-}
-
-// String result: write into buffer(), then call set_length()
-void my_string_impl(StringResult out) {
-    const char* value = "result";
-    auto buf = out.buffer();
-    memcpy(buf.data(), value, strlen(value));
-    out.set_length(strlen(value));
-}
+```bash
+cmake -B build && cmake --build build             # build
+cmake --build build --target run-mtr              # test (downloads dev server)
+./tools/build.sh [-t] [-s]                        # convenience wrapper
 ```
 
-### Function with Arguments
+## Conventions
 
-Typed input wrappers (`IntArg`, `RealArg`, `StringArg`, `CustomArg`) provide
-`is_null()` and `value()`. List args before the result parameter:
+- **C++ standard**: C++17
+- **Copyright**: Include the GPL-2.0 copyright header in every `.cc`, `.h`,
+  `.cpp`, `.hpp`, and `CMakeLists.txt` file (exact header below)
+- For anything not listed here, follow the conventions already established in
+  existing source files — consistency with surrounding code takes priority
 
-```cpp
-void my_function_impl(IntArg arg1, StringArg arg2, IntResult out) {
-    if (arg1.is_null() || arg2.is_null()) { out.set_null(); return; }
-    // arg1.value() -> int64_t
-    // arg2.value() -> std::string_view
-    out.set(arg1.value());
-}
-```
-
-### Extension Registration
-
-Use the `VEF_GENERATE_ENTRY_POINTS()` macro to register the extension and its functions:
-
-```cpp
-VEF_GENERATE_ENTRY_POINTS(
-  make_extension()
-    .func(make_func<&my_function_impl>("my_function")
-      .returns(STRING)  // or INT, REAL, UUID, etc.
-      .param(STRING)    // Add .param() for each argument
-      .buffer_size(100) // For STRING return type
-      .build())
-)
-```
-
-### Result Types
-
-Call the typed wrapper method on the result parameter:
-
-- `out.set(value)` / `out.set_length(n)` — returns a value (`VEF_RESULT_VALUE`)
-- `out.set_null()` — returns SQL NULL
-- `out.warning(msg)` — returns NULL with a SQL warning; call instead of `out.set()`, not in addition to it
-- `out.error(msg)` — aborts statement execution with an error
-
-## Testing
-
-The extension includes test files using the MySQL Test Runner (MTR) framework:
-
-- **Test Location**:
-  - `mysql-test/t/` directory contains `.test` files with SQL test commands
-  - `mysql-test/r/` directory contains `.result` files with expected output
-- **Run Tests via CMake** (recommended):
-  ```bash
-  make -C build run-mtr
-  ```
-  Downloads a dev server on first run, then runs MTR automatically.
-- Tests should validate function output and behavior
-- Each test should install the extension, run tests, and clean up (drop functions, uninstall extension)
-
-## Extension Installation
-
-After building the VEB file, load the extension in VillageSQL:
-
-```sql
-INSTALL EXTENSION vsql_cowsay;
-```
-
-Then test the functions:
-```sql
-SELECT hello_world();
-```
-
-Note: Extension names use underscores, not hyphens (e.g., `vsql_cowsay`, not `vsql-cowsay`).
-
-## Customizing the Template
-
-To create your own extension:
-
-1. **Update `manifest.json`**:
-   - Change `name` (use underscores, e.g., `my_extension_name`)
-   - Update `description`, `author`, and `version`
-
-2. **Update `CMakeLists.txt`**:
-   - Change `EXTENSION_NAME` variable (use underscores)
-   - Update library name in `add_library()` if desired
-   - Add additional source files to `add_library()` if needed
-   - Add dependencies (e.g., `find_package(OpenSSL)`, `target_link_libraries()`)
-
-3. **Implement your functions**:
-   - Modify `src/cowsay.cc` or create new `.cc` files
-   - Follow the VEF API pattern (single implementation function)
-   - Use `VEF_GENERATE_ENTRY_POINTS()` to register functions
-   - Add copyright header to all new source files
-
-4. **Register functions in code**:
-   - Functions are registered using the fluent builder API in `VEF_GENERATE_ENTRY_POINTS()`
-   - Specify return type with `.returns(STRING|INT|REAL|...)`
-   - Add parameters with `.param(type)`
-   - Set buffer size for STRING returns with `.buffer_size(N)`
-   - No separate `install.sql` file is needed
-
-5. **Create tests**:
-   - Add `.test` files in `mysql-test/t/` directory
-   - Generate expected results in `mysql-test/r/` using `--record` flag
-   - Each test should install extension, test functions, and clean up
-   - Verify function behavior with various inputs
-
-## Licensing and Copyright
-
-All source code files (`.cc`, `.h`, `.cpp`, `.hpp`) and CMake files (`CMakeLists.txt`) must include the following copyright header at the top of the file:
+### Required Copyright Header
 
 ```
 /* Copyright (c) 2026 VillageSQL Contributors
@@ -211,38 +59,54 @@ All source code files (`.cc`, `.h`, `.cpp`, `.hpp`) and CMake files (`CMakeLists
  */
 ```
 
-When creating new source files, always include this copyright block before any code or includes.
+## Sources of Truth
 
-## Common Tasks for AI Agents
+This project defers to the VillageSQL documentation and local source code for
+specifics. Do not inline or copy API contracts here — fetch them from the source
+when needed.
 
-When asked to add functionality to this template:
+| Topic | Where to find it |
+|---|---|
+| VEF API (typed wrappers, registration, result types) | [C++ Development Guide](https://villagesql.com/docs/mysql-8.4/stable/development) |
+| Extension naming conventions | [Extension Naming Conventions](https://villagesql.com/docs/mysql-8.4/stable/install) (embedded in install page) |
+| CMake variables and build config | `CMakeLists.txt` + `cmake/FindVillageSQL.cmake` |
+| Test format (MTR `.test` / `.result` files) | `mysql-test/t/cowsay_basic.test` + `mysql-test/r/cowsay_basic.result` |
+| Full documentation index for AI discovery | [`https://villagesql.com/docs/llms.txt`](https://villagesql.com/docs/llms.txt) — start here to find relevant pages |
 
-1. **Adding a new function**:
-   - Create implementation function with typed wrappers: `void func_impl(IntArg a, StringResult out)` (args first, result last)
-   - Add function to `VEF_GENERATE_ENTRY_POINTS()` block using `.func(make_func<&func_impl>("name")...)`
-   - Specify return type, parameters, and buffer size
-   - Add to CMakeLists.txt if creating new source file
-   - Create tests
+## Common Tasks
 
-2. **Modifying build**:
-   - Edit CMakeLists.txt, ensure proper library linking
-   - Use `target_link_libraries()` for dependencies
+### Add a Function
 
-3. **Adding dependencies**:
-   - Update CMakeLists.txt with `find_package()` or `target_link_libraries()`
-   - Example: OpenSSL requires `find_package(OpenSSL REQUIRED)` and `target_link_libraries(cowsay PRIVATE ${OPENSSL_LIBRARIES})`
+1. Open `src/cowsay.cc` and write the implementation using typed wrapper
+   parameters (args first, result last)
+2. Register it in the `VEF_GENERATE_ENTRY_POINTS()` block with
+   `make_func<&impl_fn>("sql_name").returns(...).param(...).buffer_size(N).build()`
+3. Add a test file in `mysql-test/t/` and expected results in `mysql-test/r/`
+4. Build and run tests to verify
 
-4. **Testing**:
-   - Create or update `.test` files in `mysql-test/t/` directory
-   - Generate expected results in `mysql-test/r/` using `--record`
-   - Use extension name with underscores in `INSTALL EXTENSION` commands
+### Add a Source File
 
-5. **Documentation**:
-   - Update README.md to reflect new functionality
+1. Create the file with the copyright header
+2. Add it to `add_library(cowsay SHARED ...)` in `CMakeLists.txt`
+3. Create corresponding tests
 
-**Important Conventions:**
-- Always use underscores in extension names (not hyphens)
-- Always include proper copyright headers in source files
-- Use C++17 standard
-- Functions are registered in code using VEF API (no install.sql needed)
-- Result: call `out.set(v)`, `out.set_null()`, `out.warning(msg)`, or `out.error(msg)`
+### Add a Dependency
+
+```cmake
+find_package(PackageName REQUIRED)
+target_link_libraries(cowsay PRIVATE ${PACKAGE_LIBRARIES})
+```
+
+### Test Workflow
+
+Tests use the MySQL Test Runner (MTR). Each `.test` file should install the
+extension at the start and uninstall it at the end. Expected output is generated
+by running MTR with `--record`:
+
+```bash
+# Run tests
+cmake --build build --target run-mtr
+
+# Update expected results
+perl mysql-test-run.pl --suite=/path/to/mysql-test --record
+```
