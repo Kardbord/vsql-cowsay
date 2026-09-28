@@ -100,7 +100,6 @@ else()
       -D ARCH="${_vsql_arch}"
       -D DEST_DIR="${CMAKE_CURRENT_BINARY_DIR}/_deps"
       -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/download-vsql-server.cmake"
-    USES_TERMINAL
   )
 endif()
 
@@ -131,5 +130,51 @@ add_custom_target(run-mtr-record
     --retry=0
   WORKING_DIRECTORY "${_vsql_test_base}/mysql-test"
   DEPENDS ${EXTENSION_NAME}.veb villagesql-dev-server
+)
+
+set(_vsql_test_instance "${CMAKE_CURRENT_BINARY_DIR}/instance")
+add_custom_target(init-transient-vsql-server
+  COMMENT "Initializing VillageSQL Server..."
+  COMMAND ${CMAKE_COMMAND} -E rm -rf "${_vsql_test_instance}/data"
+  COMMAND ${CMAKE_COMMAND} -E make_directory "${_vsql_test_instance}"
+  COMMAND ${CMAKE_COMMAND} -E make_directory "${_vsql_test_instance}/veb"
+  COMMAND ${CMAKE_COMMAND} -E copy_directory "${_vsql_test_base}/lib/veb" "${_vsql_test_instance}/veb"
+  COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_BINARY_DIR}/${EXTENSION_NAME}.veb" "${_vsql_test_instance}/veb"
+  COMMAND "${_vsql_test_base}/bin/mysqld"
+    --no-defaults
+    --initialize-insecure
+    --basedir="${_vsql_test_base}"
+    --datadir="${_vsql_test_instance}/data"
+    --log-error-verbosity=3
+  BYPRODUCTS "${_vsql_test_instance}/data"
+  DEPENDS ${EXTENSION_NAME}.veb villagesql-dev-server
+)
+
+add_custom_target(connect-transient-vsql-server
+  COMMENT "Running and connecting to transient VillageSQL Server..."
+  COMMAND ${CMAKE_COMMAND} -E echo "Running server..."
+  COMMAND "${_vsql_test_base}/bin/mysqld"
+    --no-defaults
+    --basedir="${_vsql_test_base}"
+    --datadir="${_vsql_test_instance}/data"
+    --veb-dir="${_vsql_test_instance}/veb"
+    --socket="${_vsql_test_instance}/mysql.sock"
+    --port=3307
+    --bind-address=127.0.0.1
+    --pid-file="${_vsql_test_instance}/mysql.pid"
+    --log-error="${_vsql_test_instance}/data/error.log"
+    --log-error-verbosity=3
+    --daemonize
+  COMMAND ${CMAKE_COMMAND} -E echo "Connecting to server..."
+  COMMAND "${_vsql_test_base}/bin/mysql"
+    --socket="${_vsql_test_instance}/mysql.sock"
+    --user root
+  COMMAND ${CMAKE_COMMAND} -E echo "Stopping server..."
+  COMMAND "${_vsql_test_base}/bin/mysqladmin"
+    --socket="${_vsql_test_instance}/mysql.sock"
+    --user root
+    shutdown
+  DEPENDS init-transient-vsql-server
+  USES_TERMINAL
 )
 
